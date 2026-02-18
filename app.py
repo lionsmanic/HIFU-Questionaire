@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS 美化工程 ---
+# --- 2. CSS 美化工程 (含卡片樣式) ---
 st.markdown("""
     <style>
     /* 全局字體設定 */
@@ -60,13 +60,25 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .question-title {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
         color: #2E4053;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
         border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
+        padding-bottom: 5px;
     }
+
+    /* Step 3 卡片樣式 (UDI-6) */
+    .udi-card {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #B2DFDB; /* 淺綠框 */
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .udi-title { font-size: 18px; font-weight: bold; color: #00695C; }
+    .udi-desc { font-size: 15px; color: #546E7A; margin-bottom: 10px; }
 
     /* 輸入框與標籤放大 */
     .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label {
@@ -364,39 +376,89 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.markdown("<div class='step-header'>Step 3: 症狀評估</div>", unsafe_allow_html=True)
 
-    st.markdown("### 1. 經痛程度 (VAS Score)")
-    st.caption("請滑動選擇痛感：0=無痛，10=無法忍受")
-    
-    no_pain = st.checkbox("無經痛困擾", value=st.session_state.patient_data.get("no_pain", False))
+    # --- 1. 經痛評估 (視覺化改良版) ---
+    st.markdown("""
+    <div style="background-color:#FFEBEE; padding:15px; border-radius:10px; border-left:5px solid #E57373; margin-bottom:20px;">
+        <h3 style="color:#C62828; margin:0;">⚡ 1. 經痛程度</h3>
+        <p style="color:#555; margin-top:5px;">請依照您<b>「最痛的時候」</b>的感覺，滑動下方拉桿選擇。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    no_pain = st.checkbox("😊 我完全沒有經痛困擾", value=st.session_state.patient_data.get("no_pain", False))
+
     if not no_pain:
-        pain_val = st.slider("", 0, 10, value=st.session_state.patient_data.get("pain_val", 0))
+        # 定義表情符號
+        pain_options = {
+            0: "0 (無痛) 😊", 1: "1 😐", 2: "2 (輕微) 🙂", 3: "3 😐",
+            4: "4 (中等) 😣", 5: "5 😣", 6: "6 (強烈) 😖", 7: "7 😖",
+            8: "8 (劇烈) 😭", 9: "9 😭", 10: "10 (無法忍受) 🚑"
+        }
+        
+        default_val = st.session_state.patient_data.get("pain_val", 0)
+        
+        pain_selection = st.select_slider(
+            label="請左右滑動選擇痛感：",
+            options=list(pain_options.keys()),
+            format_func=lambda x: pain_options[x],
+            value=default_val
+        )
+        st.info(f"您選擇的是： **{pain_options[pain_selection]}**")
+        pain_val = pain_selection
     else:
         pain_val = 0
+        st.success("已記錄：無經痛。")
 
     st.markdown("---")
 
-    st.markdown("### 2. 頻尿/漏尿評估 (UDI-6)")
+    # --- 2. 頻尿/漏尿評估 (卡片式改良版) ---
     st.markdown("""
-    <div style='background-color:#FFF3E0; padding:10px; border-radius:5px; margin-bottom:15px;'>
-    <b>困擾程度：</b> 0=無困擾，1=稍微，2=中度，3=極度
+    <div style="background-color:#E3F2FD; padding:15px; border-radius:10px; border-left:5px solid #2196F3; margin-bottom:20px;">
+        <h3 style="color:#1565C0; margin:0;">🚽 2. 排尿與頻尿狀況</h3>
+        <p style="color:#555; margin-top:5px;">請勾選以下症狀對您生活的<b>「困擾程度」</b>。</p>
     </div>
     """, unsafe_allow_html=True)
     
-    no_udi = st.checkbox("無頻尿/排尿困擾", value=st.session_state.patient_data.get("no_udi", False))
+    no_udi = st.checkbox("🌟 我排尿都很正常，無任何困擾", value=st.session_state.patient_data.get("no_udi", False))
     
-    udi_labels = ["頻尿 (小便次數多)", "尿急導致漏尿", "咳嗽/打噴嚏/運動時漏尿", "滴尿 (解完還有)", "排尿困難 (需用力)", "下腹/骨盆疼痛"]
+    # 題目定義
+    udi_items = [
+        {"icon": "🏃‍♀️", "title": "頻尿", "desc": "覺得小便次數太頻繁？"},
+        {"icon": "🌊", "title": "急迫性漏尿", "desc": "有尿意時來不及跑到廁所就漏出來？"},
+        {"icon": "🤧", "title": "應力性漏尿", "desc": "咳嗽、打噴嚏或運動時會漏尿？"},
+        {"icon": "💧", "title": "滴尿", "desc": "小便量少，滴滴答答解不乾淨？"},
+        {"icon": "😣", "title": "排尿困難", "desc": "小便排不出來，需要用力壓肚子？"},
+        {"icon": "💥", "title": "疼痛", "desc": "下腹部或骨盆會感到疼痛或不舒服？"}
+    ]
+    option_map = {0: "完全沒有", 1: "有一點", 2: "滿困擾", 3: "非常嚴重"}
     udi_scores = []
 
     if not no_udi:
-        for i, label in enumerate(udi_labels):
-            st.markdown(f"**{label}**")
-            val = st.radio(f"label_{i}", [0, 1, 2, 3], index=st.session_state.patient_data.get(f"udi_{i}", 0), 
-                           key=f"radio_udi_{i}", horizontal=True, label_visibility="collapsed")
-            udi_scores.append(val)
+        for i, item in enumerate(udi_items):
+            with st.container():
+                st.markdown(f"""
+                <div class="udi-card">
+                    <div class="udi-title">{item['icon']} {item['title']}</div>
+                    <div class="udi-desc">{item['desc']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                val = st.radio(
+                    f"udi_q_{i}", 
+                    options=[0, 1, 2, 3],
+                    format_func=lambda x: f"{option_map[x]} ({x})",
+                    index=st.session_state.patient_data.get(f"udi_{i}", 0),
+                    key=f"radio_udi_{i}",
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
+                udi_scores.append(val)
         udi_total = sum(udi_scores)
+        if udi_total > 0:
+            st.warning(f"頻尿困擾總分：{udi_total} 分")
     else:
         udi_scores = [0]*6
         udi_total = 0
+        st.success("已記錄：排尿正常。")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_back, col_next = st.columns([1, 1])
