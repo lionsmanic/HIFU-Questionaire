@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="海扶治療中心 - 患者追蹤問卷",
     page_icon="🏥",
     layout="centered",
-    initial_sidebar_state="expanded"  # 預設展開左側欄
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. CSS 美化工程 ---
@@ -47,6 +47,25 @@ st.markdown("""
         margin-bottom: 25px;
         border-radius: 0 10px 10px 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Step 2 問題區塊樣式 */
+    .question-box {
+        background-color: #F8F9FA;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #E0E0E0;
+        border-left: 6px solid #00695C;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .question-title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #2E4053;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
     }
 
     /* 輸入框與標籤放大 */
@@ -95,7 +114,7 @@ st.markdown("""
     
     /* 側邊欄按鈕特別樣式 */
     section[data-testid="stSidebar"] button {
-        background-color: #ef5350 !important; /* 紅色 */
+        background-color: #ef5350 !important;
         color: white !important;
         border: none !important;
         box-shadow: 0 4px 0 #c62828 !important;
@@ -169,12 +188,11 @@ def reset_app():
     st.session_state.step = 1
     st.session_state.patient_data = {}
 
-# --- 5. 側邊欄功能區 (這裡就是你要的清空按鈕！) ---
+# --- 5. 側邊欄功能區 ---
 with st.sidebar:
     st.title("⚙️ 功能選單")
-    st.info("此按鈕可隨時清除目前所有資料，並回到第一頁。")
+    st.info("此按鈕可隨時清除目前所有資料，並回到第一頁，方便下一位患者填寫。")
     
-    # 這裡的按鈕會執行 reset_app 然後重跑網頁
     if st.button("🔄 清空資料 / 下一位"):
         reset_app()
         st.rerun()
@@ -235,53 +253,95 @@ if st.session_state.step == 1:
 
 # ================= STEP 2: 經血量評估 (PBAC) =================
 elif st.session_state.step == 2:
-    st.markdown("<div class='step-header'>Step 2: 經血量評估 (PBAC Score)</div>", unsafe_allow_html=True)
-    st.info("💡 請參考左側圖示，填寫您在一個經期內的「總使用量」。")
-
-    c_img, c_input = st.columns([1, 1.5], gap="medium")
+    st.markdown("<div class='step-header'>Step 2: 經血量評估</div>", unsafe_allow_html=True)
     
-    with c_img:
+    st.info("""
+    **填寫說明：**
+    請回想您 **「最近這一次經期」** 的情況。
+    請對照左邊（或上方）的圖片，計算您總共使用了幾片衛生棉/棉條，以及發生過幾次血塊/滲漏。
+    **請填寫「數量」（片數/次數），系統會自動幫您算分。**
+    """)
+
+    col_img, col_form = st.columns([1, 1.2], gap="large")
+    
+    with col_img:
+        st.markdown("### 🖼️ 參考圖示")
         if os.path.exists("blood_chart.png"):
-            st.image("blood_chart.png", caption="經血量參考圖", use_column_width=True)
+            st.image("blood_chart.png", caption="請對照此圖評估血量", use_column_width=True)
         else:
-            st.warning("⚠️ 圖片載入失敗 (blood_chart.png)")
+            st.error("⚠️ 圖片 blood_chart.png 未找到")
+            st.markdown("請確認圖片已上傳至專案資料夾。")
 
-    with c_input:
-        st.markdown("""<style>.stCheckbox label {font-size: 20px !important; color: #D84315 !important;}</style>""", unsafe_allow_html=True)
+    with col_form:
         no_blood = st.checkbox("我目前無月經 / 無經血困擾", value=st.session_state.patient_data.get("no_blood", False))
-        
-        if not no_blood:
-            with st.expander("📝 點擊展開填寫 (請填寫數字)", expanded=True):
-                st.markdown("#### 🩸 衛生棉 (片/週期)")
-                c1, c2, c3 = st.columns(3)
-                pl = c1.number_input("輕微 (1分)", 0, 100, value=st.session_state.patient_data.get("pl", 0))
-                pm = c2.number_input("中等 (5分)", 0, 100, value=st.session_state.patient_data.get("pm", 0))
-                ph = c3.number_input("大量 (20分)", 0, 100, value=st.session_state.patient_data.get("ph", 0))
-                
-                st.markdown("#### 🧶 棉條 (支/週期)")
-                c4, c5, c6 = st.columns(3)
-                tl = c4.number_input("棉-輕 (1分)", 0, 100, value=st.session_state.patient_data.get("tl", 0))
-                tm = c5.number_input("棉-中 (5分)", 0, 100, value=st.session_state.patient_data.get("tm", 0))
-                th = c6.number_input("棉-大 (10分)", 0, 100, value=st.session_state.patient_data.get("th", 0))
-                
-                st.markdown("#### ⚠️ 血塊與意外")
-                c7, c8, c9 = st.columns(3)
-                cs = c7.number_input("小血塊 (1分)", 0, 100, value=st.session_state.patient_data.get("cs", 0))
-                cl = c8.number_input("大血塊 (5分)", 0, 100, value=st.session_state.patient_data.get("cl", 0))
-                ac = c9.number_input("滲漏 (5分)", 0, 100, value=st.session_state.patient_data.get("ac", 0))
 
-            score = calculate_blood_score(pl, pm, ph, tl, tm, th, cs, cl, ac)
+        if not no_blood:
+            # ---區塊 1: 衛生棉---
+            st.markdown('<div class="question-box">', unsafe_allow_html=True)
+            st.markdown('<div class="question-title">🩸 1. 衛生棉 (使用總片數)</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:#E3F2FD; padding:15px; border-radius:10px; text-align:center; border: 2px solid #90CAF9;">
-                <h3 style="margin:0; color:#1565C0;">目前總分：{score} 分</h3>
-            </div>
-            """, unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown("**輕微 (1分)**")
+                st.caption("僅沾染一點點")
+                pl = st.number_input("輕微-片數", 0, 100, key="pl", label_visibility="collapsed", value=st.session_state.patient_data.get("pl", 0))
+            with c2:
+                st.markdown("**中等 (5分)**")
+                st.caption("沾染約一半")
+                pm = st.number_input("中等-片數", 0, 100, key="pm", label_visibility="collapsed", value=st.session_state.patient_data.get("pm", 0))
+            with c3:
+                st.markdown("**大量 (20分)**")
+                st.caption("整片全濕")
+                ph = st.number_input("大量-片數", 0, 100, key="ph", label_visibility="collapsed", value=st.session_state.patient_data.get("ph", 0))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ---區塊 2: 棉條---
+            st.markdown('<div class="question-box">', unsafe_allow_html=True)
+            st.markdown('<div class="question-title">🧶 2. 棉條 (使用總支數)</div>', unsafe_allow_html=True)
+            st.markdown("*若無使用請留白或填 0*")
+            
+            c4, c5, c6 = st.columns(3)
+            with c4:
+                st.markdown("**輕微 (1分)**")
+                st.caption("僅一點點")
+                tl = st.number_input("棉輕-支數", 0, 100, key="tl", label_visibility="collapsed", value=st.session_state.patient_data.get("tl", 0))
+            with c5:
+                st.markdown("**中等 (5分)**")
+                st.caption("約一半")
+                tm = st.number_input("棉中-支數", 0, 100, key="tm", label_visibility="collapsed", value=st.session_state.patient_data.get("tm", 0))
+            with c6:
+                st.markdown("**大量 (10分)**")
+                st.caption("整根全濕")
+                th = st.number_input("棉大-支數", 0, 100, key="th", label_visibility="collapsed", value=st.session_state.patient_data.get("th", 0))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ---區塊 3: 血塊與意外---
+            st.markdown('<div class="question-box">', unsafe_allow_html=True)
+            st.markdown('<div class="question-title">⚠️ 3. 血塊與滲漏 (發生次數)</div>', unsafe_allow_html=True)
+            
+            c7, c8, c9 = st.columns(3)
+            with c7:
+                st.markdown("**小血塊 (1分)**")
+                st.caption("像1元硬幣大小")
+                cs = st.number_input("小血塊-次數", 0, 100, key="cs", label_visibility="collapsed", value=st.session_state.patient_data.get("cs", 0))
+            with c8:
+                st.markdown("**大血塊 (5分)**")
+                st.caption("大於1元硬幣")
+                cl = st.number_input("大血塊-次數", 0, 100, key="cl", label_visibility="collapsed", value=st.session_state.patient_data.get("cl", 0))
+            with c9:
+                st.markdown("**滲漏 (5分)**")
+                st.caption("溢出沾到褲子")
+                ac = st.number_input("滲漏-次數", 0, 100, key="ac", label_visibility="collapsed", value=st.session_state.patient_data.get("ac", 0))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # 即時計算分數
+            score = calculate_blood_score(pl, pm, ph, tl, tm, th, cs, cl, ac)
+            st.success(f"📊 目前計算總分： **{score} 分**")
             
         else:
             pl=pm=ph=tl=tm=th=cs=cl=ac=0
             score = 0
-            st.info("已選擇無經血困擾。")
+            st.info("已選擇無經血困擾，分數為 0 分。")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_back, col_next = st.columns([1, 1])
