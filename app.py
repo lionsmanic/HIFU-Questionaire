@@ -199,6 +199,9 @@ def reset_app():
     """清空所有資料並回到第一頁"""
     st.session_state.step = 1
     st.session_state.patient_data = {}
+    # 清除送出成功的狀態
+    if 'submit_success' in st.session_state:
+        del st.session_state['submit_success']
 
 # --- 5. 側邊欄功能區 ---
 with st.sidebar:
@@ -555,10 +558,17 @@ elif st.session_state.step == 4:
                 )
                 
                 if success:
-                    st.success("✅ 問卷已成功送出！")
-                    st.balloons()
-                    if st.button("填寫下一位"):
-                        reset_app()
-                        st.rerun()
+                    st.session_state['submit_success'] = True
+                    st.rerun()
                 else:
                     st.error("❌ 傳送失敗，請聯繫管理員。")
+
+    # 如果成功送出，顯示成功訊息與「下一位」按鈕
+    if st.session_state.get('submit_success', False):
+        st.success("✅ 問卷已成功送出！")
+        st.balloons()
+        
+        # 這裡的按鈕邏輯跟側邊欄一模一樣，確保清空資料並回到第一頁
+        if st.button("🔄 填寫下一位 (清空資料)"):
+            reset_app() # 呼叫清空函式
+            st.rerun()  # 重跑網頁
