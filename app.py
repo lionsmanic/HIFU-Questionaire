@@ -13,10 +13,10 @@ st.set_page_config(
     page_title="海扶治療中心 - 患者追蹤問卷",
     page_icon="🏥",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"  # 預設展開左側欄
 )
 
-# --- 2. CSS 美化工程 (字體放大、配色柔和、間距調整) ---
+# --- 2. CSS 美化工程 ---
 st.markdown("""
     <style>
     /* 全局字體設定 */
@@ -24,14 +24,14 @@ st.markdown("""
         font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
     }
     
-    /* 1. 標題樣式 */
+    /* 標題樣式 */
     .main-header {
         font-size: 32px !important;
         font-weight: 800;
-        color: #00695C; /* 專業深藍綠 */
+        color: #00695C;
         text-align: center;
         padding: 20px;
-        background-color: #E0F2F1; /* 淺綠底 */
+        background-color: #E0F2F1;
         border-radius: 15px;
         margin-bottom: 25px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -49,41 +49,36 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* 2. 輸入框與標籤放大 (關鍵) */
-    /* 標籤文字 (Label) */
+    /* 輸入框與標籤放大 */
     .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label {
         font-size: 20px !important;
         font-weight: 600 !important;
         color: #37474F !important;
     }
-    
-    /* 單選/複選框文字 */
     .stRadio label, .stCheckbox label {
         font-size: 18px !important;
     }
-    
-    /* 輸入框內的文字 */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
         font-size: 18px !important; 
-        height: 50px; /* 加高輸入框 */
+        height: 50px;
     }
 
-    /* 3. 按鈕優化 */
+    /* 按鈕優化 */
     .stButton > button {
         width: 100%;
-        height: 60px; /* 按鈕加高 */
+        height: 60px;
         font-size: 20px !important;
         font-weight: bold;
         border-radius: 12px;
         transition: all 0.3s ease;
     }
     
-    /* 主要按鈕 (下一步/送出) - 珊瑚紅 */
+    /* 下一步/送出按鈕 (右邊) - 珊瑚紅 */
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
         background-color: #FF7043; 
         color: white;
         border: none;
-        box-shadow: 0 4px 0 #D84315; /* 立體感 */
+        box-shadow: 0 4px 0 #D84315;
     }
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover {
         background-color: #FF5722;
@@ -91,22 +86,24 @@ st.markdown("""
         box-shadow: 0 2px 0 #D84315;
     }
 
-    /* 次要按鈕 (上一步) - 簡潔灰 */
+    /* 上一步按鈕 (左邊) - 簡潔灰 */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) button {
         background-color: #ECEFF1;
         color: #455A64;
         border: 1px solid #CFD8DC;
     }
+    
+    /* 側邊欄按鈕特別樣式 */
+    section[data-testid="stSidebar"] button {
+        background-color: #ef5350 !important; /* 紅色 */
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 0 #c62828 !important;
+    }
 
-    /* 4. 進度條顏色 */
+    /* 進度條顏色 */
     .stProgress > div > div > div > div {
         background-color: #26A69A;
-    }
-    
-    /* 5. 調整 Expander (展開區) 字體 */
-    .streamlit-expanderHeader {
-        font-size: 18px !important;
-        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -158,7 +155,7 @@ def send_email_via_gmail(subject, content, df, filename):
         st.error(f"❌ 郵件發送失敗: {e}")
         return False
 
-# --- 4. Session State ---
+# --- 4. Session State & Reset ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'patient_data' not in st.session_state:
@@ -166,11 +163,23 @@ if 'patient_data' not in st.session_state:
 
 def next_step(): st.session_state.step += 1
 def prev_step(): st.session_state.step -= 1
+
 def reset_app():
+    """清空所有資料並回到第一頁"""
     st.session_state.step = 1
     st.session_state.patient_data = {}
 
-# --- 5. 主程式 ---
+# --- 5. 側邊欄功能區 (這裡就是你要的清空按鈕！) ---
+with st.sidebar:
+    st.title("⚙️ 功能選單")
+    st.info("此按鈕可隨時清除目前所有資料，並回到第一頁。")
+    
+    # 這裡的按鈕會執行 reset_app 然後重跑網頁
+    if st.button("🔄 清空資料 / 下一位"):
+        reset_app()
+        st.rerun()
+
+# --- 6. 主程式 ---
 
 st.markdown("<div class='main-header'>🏥 海扶治療中心 - 患者追蹤問卷</div>", unsafe_allow_html=True)
 progress_val = {1: 10, 2: 40, 3: 70, 4: 100}
@@ -181,7 +190,6 @@ if st.session_state.step == 1:
     st.markdown("<div class='step-header'>Step 1: 基本資料填寫</div>", unsafe_allow_html=True)
     
     with st.container():
-        # 增加 gap 讓左右間距寬一點
         col1, col2 = st.columns(2, gap="large")
         
         with col1:
@@ -189,12 +197,9 @@ if st.session_state.step == 1:
             p_name = st.text_input("姓名", value=st.session_state.patient_data.get("name", ""), placeholder="請輸入姓名")
         
         with col2:
-            # === 修改重點：使用 date_input ===
-            # 預設值邏輯：如果有填過就用填過的，沒有則預設 1980/1/1 (方便選取)
             default_date = date(1980, 1, 1)
             if "birth" in st.session_state.patient_data:
                 try:
-                    # 嘗試將字串轉回 date 物件顯示
                     default_date = datetime.strptime(st.session_state.patient_data["birth"], "%Y-%m-%d").date()
                 except:
                     pass
@@ -206,7 +211,6 @@ if st.session_state.step == 1:
                 max_value=date.today()
             )
             
-            # 選項邏輯
             options = ["海扶術前", "海扶術後", "術後3個月", "6個月", "1年", "2年", "3年", "4年以上"]
             idx = 0
             if "followup" in st.session_state.patient_data and st.session_state.patient_data["followup"] in options:
@@ -214,7 +218,7 @@ if st.session_state.step == 1:
             
             p_followup = st.selectbox("追蹤期間", options, index=idx)
 
-    st.markdown("<br>", unsafe_allow_html=True) # 增加垂直間距
+    st.markdown("<br>", unsafe_allow_html=True)
     
     _, col_next = st.columns([3, 1])
     with col_next:
@@ -222,7 +226,6 @@ if st.session_state.step == 1:
             if not p_id or not p_name:
                 st.warning("⚠️ 請填寫 病歷號 與 姓名")
             else:
-                # 將日期物件轉為字串儲存
                 birth_str = p_birth_date.strftime("%Y-%m-%d")
                 st.session_state.patient_data.update({
                     "id": p_id, "name": p_name, "birth": birth_str, "followup": p_followup
@@ -244,7 +247,6 @@ elif st.session_state.step == 2:
             st.warning("⚠️ 圖片載入失敗 (blood_chart.png)")
 
     with c_input:
-        # 使用 markdown 加大 checkbox 字體
         st.markdown("""<style>.stCheckbox label {font-size: 20px !important; color: #D84315 !important;}</style>""", unsafe_allow_html=True)
         no_blood = st.checkbox("我目前無月經 / 無經血困擾", value=st.session_state.patient_data.get("no_blood", False))
         
@@ -270,7 +272,6 @@ elif st.session_state.step == 2:
 
             score = calculate_blood_score(pl, pm, ph, tl, tm, th, cs, cl, ac)
             
-            # 分數顯示美化
             st.markdown(f"""
             <div style="background-color:#E3F2FD; padding:15px; border-radius:10px; text-align:center; border: 2px solid #90CAF9;">
                 <h3 style="margin:0; color:#1565C0;">目前總分：{score} 分</h3>
@@ -303,7 +304,6 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.markdown("<div class='step-header'>Step 3: 症狀評估</div>", unsafe_allow_html=True)
 
-    # --- 經痛 ---
     st.markdown("### 1. 經痛程度 (VAS Score)")
     st.caption("請滑動選擇痛感：0=無痛，10=無法忍受")
     
@@ -315,7 +315,6 @@ elif st.session_state.step == 3:
 
     st.markdown("---")
 
-    # --- 頻尿 ---
     st.markdown("### 2. 頻尿/漏尿評估 (UDI-6)")
     st.markdown("""
     <div style='background-color:#FFF3E0; padding:10px; border-radius:5px; margin-bottom:15px;'>
