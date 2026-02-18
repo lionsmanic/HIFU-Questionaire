@@ -451,7 +451,14 @@ elif st.session_state.step == 3:
                     horizontal=True,
                     label_visibility="collapsed"
                 )
+                
+                # --- [修正] 防止 NoneType 錯誤的關鍵 ---
+                if val is None:
+                    val = 0
+                # -----------------------------------
+                
                 udi_scores.append(val)
+                
         udi_total = sum(udi_scores)
         if udi_total > 0:
             st.warning(f"頻尿困擾總分：{udi_total} 分")
