@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import io
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -10,51 +10,103 @@ import os
 
 # --- 1. 頁面設定 ---
 st.set_page_config(
-    page_title="長庚海扶治療中心 - 患者追蹤問卷",
+    page_title="海扶治療中心 - 患者追蹤問卷",
     page_icon="🏥",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CSS 樣式優化 ---
+# --- 2. CSS 美化工程 (字體放大、配色柔和、間距調整) ---
 st.markdown("""
     <style>
+    /* 全局字體設定 */
+    html, body, [class*="css"] {
+        font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
+    }
+    
+    /* 1. 標題樣式 */
     .main-header {
-        font-size: 26px;
-        font-weight: bold;
-        color: #2E86C1;
+        font-size: 32px !important;
+        font-weight: 800;
+        color: #00695C; /* 專業深藍綠 */
         text-align: center;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #eee;
-        margin-bottom: 20px;
+        padding: 20px;
+        background-color: #E0F2F1; /* 淺綠底 */
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+    
     .step-header {
-        font-size: 20px;
+        font-size: 24px !important;
         font-weight: bold;
-        color: #333;
-        margin-top: 10px;
-        margin-bottom: 20px;
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 8px;
+        color: #004D40;
+        background-color: #fff;
+        border-left: 8px solid #26A69A;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+        border-radius: 0 10px 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .stButton>button {
+
+    /* 2. 輸入框與標籤放大 (關鍵) */
+    /* 標籤文字 (Label) */
+    .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label {
+        font-size: 20px !important;
+        font-weight: 600 !important;
+        color: #37474F !important;
+    }
+    
+    /* 單選/複選框文字 */
+    .stRadio label, .stCheckbox label {
+        font-size: 18px !important;
+    }
+    
+    /* 輸入框內的文字 */
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        font-size: 18px !important; 
+        height: 50px; /* 加高輸入框 */
+    }
+
+    /* 3. 按鈕優化 */
+    .stButton > button {
         width: 100%;
-        border-radius: 8px;
-        height: 3em;
+        height: 60px; /* 按鈕加高 */
+        font-size: 20px !important;
         font-weight: bold;
+        border-radius: 12px;
+        transition: all 0.3s ease;
     }
-    /* 強調主要按鈕 */
+    
+    /* 主要按鈕 (下一步/送出) - 珊瑚紅 */
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
-        background-color: #FF4B4B;
+        background-color: #FF7043; 
         color: white;
         border: none;
+        box-shadow: 0 4px 0 #D84315; /* 立體感 */
     }
-    /* 次要按鈕 (上一步) */
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover {
+        background-color: #FF5722;
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #D84315;
+    }
+
+    /* 次要按鈕 (上一步) - 簡潔灰 */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) button {
-        background-color: #ffffff;
-        color: #333;
-        border: 1px solid #ddd;
+        background-color: #ECEFF1;
+        color: #455A64;
+        border: 1px solid #CFD8DC;
+    }
+
+    /* 4. 進度條顏色 */
+    .stProgress > div > div > div > div {
+        background-color: #26A69A;
+    }
+    
+    /* 5. 調整 Expander (展開區) 字體 */
+    .streamlit-expanderHeader {
+        font-size: 18px !important;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -64,34 +116,25 @@ st.markdown("""
 def calculate_blood_score(pad_light, pad_medium, pad_heavy,
                           tampon_light, tampon_medium, tampon_heavy,
                           small_clot, large_clot, accident):
-    """計算 PBAC 分數"""
     return (pad_light*1 + pad_medium*5 + pad_heavy*20 +
             tampon_light*1 + tampon_medium*5 + tampon_heavy*10 +
             small_clot*1 + large_clot*5 + accident*5)
 
 def send_email_via_gmail(subject, content, df, filename):
-    """
-    使用 Gmail SMTP 發送郵件 (含 Excel 附件)
-    """
-    # 嘗試從 secrets 讀取帳密
     try:
         smtp_user = st.secrets["EMAIL_USER"]
         smtp_password = st.secrets["EMAIL_PASSWORD"]
         smtp_receiver = st.secrets["EMAIL_RECEIVER"]
     except Exception:
-        st.error("❌ 系統設定錯誤：找不到 Email 帳號密碼，請檢查 secrets.toml")
+        st.error("❌ 設定錯誤：請檢查 secrets.toml 中的 Email 設定")
         return False
 
-    # 建立郵件物件
     msg = MIMEMultipart()
     msg['From'] = smtp_user
     msg['To'] = smtp_receiver
     msg['Subject'] = subject
-
-    # 加入內文
     msg.attach(MIMEText(content, 'html'))
 
-    # 處理 Excel 附件 (不存檔，直接在記憶體轉換)
     try:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -105,38 +148,31 @@ def send_email_via_gmail(subject, content, df, filename):
         st.error(f"❌ 附件製作失敗: {e}")
         return False
 
-    # 連線 SMTP Server 發送
     try:
-        # Gmail SMTP 設定: smtp.gmail.com, Port 465 (SSL)
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(smtp_user, smtp_password)
         server.send_message(msg)
         server.quit()
         return True
     except Exception as e:
-        st.error(f"❌ 郵件發送失敗 (SMTP Error): {e}")
+        st.error(f"❌ 郵件發送失敗: {e}")
         return False
 
-# --- 4. Session State 初始化 (狀態管理) ---
+# --- 4. Session State ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'patient_data' not in st.session_state:
     st.session_state.patient_data = {}
 
-# 導航函數
-def next_step():
-    st.session_state.step += 1
-def prev_step():
-    st.session_state.step -= 1
+def next_step(): st.session_state.step += 1
+def prev_step(): st.session_state.step -= 1
 def reset_app():
     st.session_state.step = 1
     st.session_state.patient_data = {}
 
-# --- 5. 主程式介面 ---
+# --- 5. 主程式 ---
 
-st.markdown("<div class='main-header'>🏥 長庚海扶治療中心 - 患者追蹤問卷</div>", unsafe_allow_html=True)
-
-# 進度條顯示
+st.markdown("<div class='main-header'>🏥 海扶治療中心 - 患者追蹤問卷</div>", unsafe_allow_html=True)
 progress_val = {1: 10, 2: 40, 3: 70, 4: 100}
 st.progress(progress_val[st.session_state.step])
 
@@ -145,37 +181,51 @@ if st.session_state.step == 1:
     st.markdown("<div class='step-header'>Step 1: 基本資料填寫</div>", unsafe_allow_html=True)
     
     with st.container():
-        col1, col2 = st.columns(2)
+        # 增加 gap 讓左右間距寬一點
+        col1, col2 = st.columns(2, gap="large")
+        
         with col1:
-            # 嘗試讀取舊值，若無則為空
-            p_id = st.text_input("病歷號碼", value=st.session_state.patient_data.get("id", ""))
-            p_name = st.text_input("姓名", value=st.session_state.patient_data.get("name", ""))
+            p_id = st.text_input("病歷號碼", value=st.session_state.patient_data.get("id", ""), placeholder="請輸入病歷號")
+            p_name = st.text_input("姓名", value=st.session_state.patient_data.get("name", ""), placeholder="請輸入姓名")
+        
         with col2:
-            p_birth = st.text_input("出生西元年月日 (例: 1980-01-01)", 
-                                    value=st.session_state.patient_data.get("birth", ""))
-            
-            # 定義選項
-            options = ["海扶術前", "海扶術後", "術後3個月", "6個月", "1年", "2年", "3年", "4年以上"]
-            # 嘗試抓取上次選的 index
-            saved_idx = 0
-            if "followup" in st.session_state.patient_data:
+            # === 修改重點：使用 date_input ===
+            # 預設值邏輯：如果有填過就用填過的，沒有則預設 1980/1/1 (方便選取)
+            default_date = date(1980, 1, 1)
+            if "birth" in st.session_state.patient_data:
                 try:
-                    saved_idx = options.index(st.session_state.patient_data["followup"])
+                    # 嘗試將字串轉回 date 物件顯示
+                    default_date = datetime.strptime(st.session_state.patient_data["birth"], "%Y-%m-%d").date()
                 except:
-                    saved_idx = 0
-            
-            p_followup = st.selectbox("追蹤期間", options, index=saved_idx)
+                    pass
 
-    st.markdown("---")
-    # 下一步按鈕
+            p_birth_date = st.date_input(
+                "出生年月日 (可點選日曆)",
+                value=default_date,
+                min_value=date(1920, 1, 1),
+                max_value=date.today()
+            )
+            
+            # 選項邏輯
+            options = ["海扶術前", "海扶術後", "術後3個月", "6個月", "1年", "2年", "3年", "4年以上"]
+            idx = 0
+            if "followup" in st.session_state.patient_data and st.session_state.patient_data["followup"] in options:
+                idx = options.index(st.session_state.patient_data["followup"])
+            
+            p_followup = st.selectbox("追蹤期間", options, index=idx)
+
+    st.markdown("<br>", unsafe_allow_html=True) # 增加垂直間距
+    
     _, col_next = st.columns([3, 1])
     with col_next:
         if st.button("下一步 ➡️"):
-            if not p_id or not p_name or not p_birth:
-                st.warning("⚠️ 請填寫完整的 病歷號、姓名 與 出生日期")
+            if not p_id or not p_name:
+                st.warning("⚠️ 請填寫 病歷號 與 姓名")
             else:
+                # 將日期物件轉為字串儲存
+                birth_str = p_birth_date.strftime("%Y-%m-%d")
                 st.session_state.patient_data.update({
-                    "id": p_id, "name": p_name, "birth": p_birth, "followup": p_followup
+                    "id": p_id, "name": p_name, "birth": birth_str, "followup": p_followup
                 })
                 next_step()
                 st.rerun()
@@ -185,54 +235,54 @@ elif st.session_state.step == 2:
     st.markdown("<div class='step-header'>Step 2: 經血量評估 (PBAC Score)</div>", unsafe_allow_html=True)
     st.info("💡 請參考左側圖示，填寫您在一個經期內的「總使用量」。")
 
-    c_img, c_input = st.columns([1, 1.5])
+    c_img, c_input = st.columns([1, 1.5], gap="medium")
     
     with c_img:
-        # 顯示圖片 (請確保圖片在同目錄)
         if os.path.exists("blood_chart.png"):
             st.image("blood_chart.png", caption="經血量參考圖", use_column_width=True)
         else:
-            st.warning("⚠️ 找不到圖片 blood_chart.png，請確認檔案已上傳。")
+            st.warning("⚠️ 圖片載入失敗 (blood_chart.png)")
 
     with c_input:
-        no_blood = st.checkbox("我目前無月經/無經血困擾", value=st.session_state.patient_data.get("no_blood", False))
+        # 使用 markdown 加大 checkbox 字體
+        st.markdown("""<style>.stCheckbox label {font-size: 20px !important; color: #D84315 !important;}</style>""", unsafe_allow_html=True)
+        no_blood = st.checkbox("我目前無月經 / 無經血困擾", value=st.session_state.patient_data.get("no_blood", False))
         
         if not no_blood:
-            with st.expander("📝 點擊展開填寫細項", expanded=True):
-                st.markdown("**衛生棉 (片/週期)**")
+            with st.expander("📝 點擊展開填寫 (請填寫數字)", expanded=True):
+                st.markdown("#### 🩸 衛生棉 (片/週期)")
                 c1, c2, c3 = st.columns(3)
                 pl = c1.number_input("輕微 (1分)", 0, 100, value=st.session_state.patient_data.get("pl", 0))
                 pm = c2.number_input("中等 (5分)", 0, 100, value=st.session_state.patient_data.get("pm", 0))
                 ph = c3.number_input("大量 (20分)", 0, 100, value=st.session_state.patient_data.get("ph", 0))
                 
-                st.markdown("**棉條 (支/週期)**")
+                st.markdown("#### 🧶 棉條 (支/週期)")
                 c4, c5, c6 = st.columns(3)
                 tl = c4.number_input("棉-輕 (1分)", 0, 100, value=st.session_state.patient_data.get("tl", 0))
                 tm = c5.number_input("棉-中 (5分)", 0, 100, value=st.session_state.patient_data.get("tm", 0))
                 th = c6.number_input("棉-大 (10分)", 0, 100, value=st.session_state.patient_data.get("th", 0))
                 
-                st.markdown("**血塊與意外**")
+                st.markdown("#### ⚠️ 血塊與意外")
                 c7, c8, c9 = st.columns(3)
                 cs = c7.number_input("小血塊 (1分)", 0, 100, value=st.session_state.patient_data.get("cs", 0))
                 cl = c8.number_input("大血塊 (5分)", 0, 100, value=st.session_state.patient_data.get("cl", 0))
                 ac = c9.number_input("滲漏 (5分)", 0, 100, value=st.session_state.patient_data.get("ac", 0))
 
-            # 即時計算
             score = calculate_blood_score(pl, pm, ph, tl, tm, th, cs, cl, ac)
-            st.metric("目前經血量分數", f"{score} 分")
             
-            # 判斷結果提示
-            if score > 100:
-                st.error("您的經血量分數偏高 (>100)，建議諮詢醫師。")
-            elif score > 0:
-                st.success("分數計算完成。")
+            # 分數顯示美化
+            st.markdown(f"""
+            <div style="background-color:#E3F2FD; padding:15px; border-radius:10px; text-align:center; border: 2px solid #90CAF9;">
+                <h3 style="margin:0; color:#1565C0;">目前總分：{score} 分</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
         else:
-            # 歸零邏輯
             pl=pm=ph=tl=tm=th=cs=cl=ac=0
             score = 0
-            st.info("已選擇無經血困擾，分數為 0 分。")
+            st.info("已選擇無經血困擾。")
 
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
     col_back, col_next = st.columns([1, 1])
     with col_back:
         if st.button("⬅️ 上一步"):
@@ -240,7 +290,6 @@ elif st.session_state.step == 2:
             st.rerun()
     with col_next:
         if st.button("下一步 ➡️"):
-            # 儲存數據
             st.session_state.patient_data.update({
                 "no_blood": no_blood, "blood_score": score,
                 "pl": pl, "pm": pm, "ph": ph,
@@ -250,47 +299,47 @@ elif st.session_state.step == 2:
             next_step()
             st.rerun()
 
-# ================= STEP 3: 疼痛與頻尿評估 =================
+# ================= STEP 3: 疼痛與頻尿 =================
 elif st.session_state.step == 3:
     st.markdown("<div class='step-header'>Step 3: 症狀評估</div>", unsafe_allow_html=True)
 
-    # --- 經痛區塊 ---
-    st.subheader("1. 經痛程度 (VAS Score)")
-    no_pain = st.checkbox("無經痛困擾", value=st.session_state.patient_data.get("no_pain", False))
+    # --- 經痛 ---
+    st.markdown("### 1. 經痛程度 (VAS Score)")
+    st.caption("請滑動選擇痛感：0=無痛，10=無法忍受")
     
+    no_pain = st.checkbox("無經痛困擾", value=st.session_state.patient_data.get("no_pain", False))
     if not no_pain:
-        pain_val = st.slider("請滑動選擇痛感 (0-10分)", 0, 10, value=st.session_state.patient_data.get("pain_val", 0))
-        st.caption("說明：0=無痛, 5=中等, 10=無法忍受")
+        pain_val = st.slider("", 0, 10, value=st.session_state.patient_data.get("pain_val", 0))
     else:
         pain_val = 0
-        st.caption("已選擇無經痛。")
 
     st.markdown("---")
 
-    # --- 頻尿區塊 (UDI-6) ---
-    st.subheader("2. 頻尿/漏尿評估 (UDI-6)")
-    st.caption("請回答下列症狀對您的**困擾程度**：0=無, 1=稍微, 2=中度, 3=極度")
+    # --- 頻尿 ---
+    st.markdown("### 2. 頻尿/漏尿評估 (UDI-6)")
+    st.markdown("""
+    <div style='background-color:#FFF3E0; padding:10px; border-radius:5px; margin-bottom:15px;'>
+    <b>困擾程度：</b> 0=無困擾，1=稍微，2=中度，3=極度
+    </div>
+    """, unsafe_allow_html=True)
     
-    no_udi = st.checkbox("無頻尿/排尿相關困擾", value=st.session_state.patient_data.get("no_udi", False))
+    no_udi = st.checkbox("無頻尿/排尿困擾", value=st.session_state.patient_data.get("no_udi", False))
     
     udi_labels = ["頻尿 (小便次數多)", "尿急導致漏尿", "咳嗽/打噴嚏/運動時漏尿", "滴尿 (解完還有)", "排尿困難 (需用力)", "下腹/骨盆疼痛"]
     udi_scores = []
 
     if not no_udi:
-        # 使用 Grid 排版讓選項整齊
         for i, label in enumerate(udi_labels):
             st.markdown(f"**{label}**")
-            # 使用 unique key 避免衝突
             val = st.radio(f"label_{i}", [0, 1, 2, 3], index=st.session_state.patient_data.get(f"udi_{i}", 0), 
-                           key=f"radio_udi_{i}", horizontal=True)
+                           key=f"radio_udi_{i}", horizontal=True, label_visibility="collapsed")
             udi_scores.append(val)
         udi_total = sum(udi_scores)
-        st.metric("頻尿困擾總分", f"{udi_total} 分")
     else:
         udi_scores = [0]*6
         udi_total = 0
 
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
     col_back, col_next = st.columns([1, 1])
     with col_back:
         if st.button("⬅️ 上一步"):
@@ -298,7 +347,6 @@ elif st.session_state.step == 3:
             st.rerun()
     with col_next:
         if st.button("完成並預覽 ➡️"):
-            # 儲存
             udi_data = {f"udi_{i}": v for i, v in enumerate(udi_scores)}
             st.session_state.patient_data.update({
                 "no_pain": no_pain, "pain_val": pain_val,
@@ -314,21 +362,21 @@ elif st.session_state.step == 4:
     
     d = st.session_state.patient_data
     
-    # 顯示摘要卡片
     with st.container():
-        st.info("請確認以下資料無誤，按下送出後將自動寄發通知信。")
         st.markdown(f"""
-        | 項目 | 內容 |
-        |---|---|
-        | **姓名** | {d.get('name')} |
-        | **病歷號** | {d.get('id')} |
-        | **追蹤期** | {d.get('followup')} |
-        | **經血分數** | **{d.get('blood_score')}** 分 |
-        | **經痛分數** | **{d.get('pain_val')}** 分 |
-        | **頻尿分數** | **{d.get('udi_total')}** 分 |
-        """)
+        <div style="background-color:#fff; padding:20px; border-radius:10px; border:1px solid #ddd; font-size:18px;">
+            <p><b>👤 姓名：</b> {d.get('name')}</p>
+            <p><b>📅 出生日期：</b> {d.get('birth')}</p>
+            <p><b>🏥 病歷號：</b> {d.get('id')}</p>
+            <p><b>🕒 追蹤期：</b> {d.get('followup')}</p>
+            <hr>
+            <p><b>🩸 經血分數：</b> <span style="color:#D84315; font-weight:bold;">{d.get('blood_score')} 分</span></p>
+            <p><b>⚡ 經痛分數：</b> <span style="color:#D84315; font-weight:bold;">{d.get('pain_val')} 分</span></p>
+            <p><b>🚽 頻尿分數：</b> <span style="color:#D84315; font-weight:bold;">{d.get('udi_total')} 分</span></p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
     col_back, col_submit = st.columns([1, 1])
     
     with col_back:
@@ -338,10 +386,9 @@ elif st.session_state.step == 4:
     
     with col_submit:
         if st.button("✅ 確認送出 (Submit)"):
-            with st.spinner("📩 正在處理資料並發送郵件..."):
+            with st.spinner("📩 正在發送報告，請稍候..."):
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                # 準備 Excel 資料 (DataFrame)
                 raw_data = {
                     "病歷號碼": [d['id']],
                     "姓名": [d['name']],
@@ -351,23 +398,25 @@ elif st.session_state.step == 4:
                     "經血分數(PBAC)": [d['blood_score']],
                     "經痛分數(VAS)": [d['pain_val']],
                     "頻尿分數(UDI)": [d['udi_total']],
-                    # 將詳細資料組合成字串方便檢視
                     "經血明細": [f"Pad:{d['pl']}/{d['pm']}/{d['ph']}, Tam:{d['tl']}/{d['tm']}/{d['th']}, Clot:{d['cs']}/{d['cl']}"],
                     "頻尿明細": [str([d[f'udi_{i}'] for i in range(6)])]
                 }
                 df = pd.DataFrame(raw_data)
                 
-                # 寄信
                 filename = f"{d['name']}_{d['followup']}_Report.xlsx"
                 email_content = f"""
-                <h3>長庚海扶中心 - 問卷回覆通知</h3>
+                <h2 style="color:#00695C;">海扶中心 - 問卷回覆通知</h2>
+                <hr>
                 <p><b>姓名：</b>{d['name']}</p>
                 <p><b>病歷號：</b>{d['id']}</p>
                 <p><b>追蹤期間：</b>{d['followup']}</p>
-                <p><b>總結分數：</b>經血 {d['blood_score']} / 經痛 {d['pain_val']} / 頻尿 {d['udi_total']}</p>
+                <p><b>總結分數：</b></p>
+                <ul>
+                    <li>經血: {d['blood_score']}</li>
+                    <li>經痛: {d['pain_val']}</li>
+                    <li>頻尿: {d['udi_total']}</li>
+                </ul>
                 <p>詳細數據請查閱附件 Excel。</p>
-                <br>
-                <p><i>此信件由系統自動發送</i></p>
                 """
                 
                 success = send_email_via_gmail(
@@ -378,10 +427,10 @@ elif st.session_state.step == 4:
                 )
                 
                 if success:
-                    st.success("✅ 問卷已成功送出！郵件已發送至中心信箱。")
+                    st.success("✅ 問卷已成功送出！")
                     st.balloons()
-                    if st.button("填寫下一位患者"):
+                    if st.button("填寫下一位"):
                         reset_app()
                         st.rerun()
                 else:
-                    st.error("❌ 傳送失敗，請確認網路連線或聯繫管理員。")
+                    st.error("❌ 傳送失敗，請聯繫管理員。")
