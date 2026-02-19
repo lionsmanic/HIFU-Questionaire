@@ -16,6 +16,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- 隱藏 Streamlit 預設的選單與浮水印 ---
+hide_streamlit_style = """
+<style>
+/* 隱藏右上角漢堡選單 */
+#MainMenu {visibility: hidden;}
+/* 隱藏底部浮水印 */
+footer {visibility: hidden;}
+/* 隱藏頂部裝飾線與 Header */
+header {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # --- 2. CSS 美化工程 (含卡片樣式) ---
 st.markdown("""
     <style>
