@@ -16,30 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 隱藏 Streamlit 預設選單、浮水印與 Fullscreen 按鈕 ---
-hide_streamlit_style = """
-<style>
-/* 1. 隱藏右上角選單與頂部裝飾線 */
-#MainMenu { visibility: hidden !important; }
-header { visibility: hidden !important; }
-
-/* 2. 隱藏一般模式底部的 Made with Streamlit */
-footer { visibility: hidden !important; }
-
-/* 3. 🔥 核彈級隱藏：封殺右下角的「Fullscreen」與「Built with Streamlit」懸浮區塊 */
-[class^="viewerBadge"] { display: none !important; }
-[class*="viewerBadge"] { display: none !important; }
-
-/* 4. 針對所有可能的全螢幕按鈕強制隱藏 */
-button[title="View fullscreen"] { display: none !important; }
-button[title="Fullscreen"] { display: none !important; }
-
-/* 5. 隱藏 Streamlit 最新的底部工具列預設區塊 */
-[data-testid="stBottom"] { display: none !important; }
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
 # --- 2. CSS 美化工程 (含卡片樣式) ---
 st.markdown("""
     <style>
