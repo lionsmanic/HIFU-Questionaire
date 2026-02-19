@@ -16,6 +16,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- 隱藏 Streamlit 預設選單、浮水印與 Fullscreen 按鈕 ---
+hide_streamlit_style = """
+<style>
+/* 隱藏右上角選單 */
+#MainMenu {visibility: hidden;}
+/* 隱藏一般模式底部浮水印 */
+footer {visibility: hidden;}
+/* 隱藏頂部裝飾線 */
+header {visibility: hidden;}
+/* 強制隱藏 Embed 模式的底部 Fullscreen 與工具列區塊 */
+[data-testid="stBottom"] {display: none;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+
 # --- 2. CSS 美化工程 (含卡片樣式) ---
 st.markdown("""
     <style>
